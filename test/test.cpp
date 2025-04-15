@@ -22,9 +22,30 @@ void make_test_fail(const char* text) {
     std::exit(0);
 }
 
+void test_comparison() {
+    std::cout << "\nTesting comparisons.\n" << colors::yellow << "TESTING..." << colors::white << '\r';
+
+    // Make 2 lists.
+    palla::vec_list<int> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    palla::vec_list<int> b = a;
+
+    if (a != b || a < b || a > b)
+        make_test_fail("Incorrect comparison.");
+
+    *std::prev(a.end()) = 42;
+    if (a == b || a <= b)
+        make_test_fail("Incorrect comparison.");
+
+    a.pop_back();
+    if (a == b || a >= b)
+        make_test_fail("Incorrect comparison.");
+
+    std::cout << colors::green << "PASS              " << colors::white;
+}
+
 template<class T, class C, class F>
 void verify_vec_list_vs_std_list_stage_2(C&& compare_elements, F&& func) {
-    // Apply functo both lists.
+    // Apply functon both lists.
     std::list<T> std_list;
     palla::vec_list<T> vec_list;
 
@@ -342,6 +363,7 @@ int main() {
 
     std::cout << colors::white;
 
+    test_comparison();
     test_consistency_with_std_list();
 
     std::cout << "\n\nGlobal Result: " << colors::green << "PASS" << colors::white << "\n";
