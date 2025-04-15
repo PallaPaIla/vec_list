@@ -3,6 +3,7 @@
 #include <vector>
 #include <optional>
 #include <algorithm>
+#include <concepts>
 #include <cassert>
 
 namespace palla {
@@ -146,9 +147,8 @@ namespace palla {
                 }
 
                 // vec_list is copyable if T is.
-                template<class = std::enable_if_t<std::is_copy_assignable_v<T>>>
-                vec_list(const vec_list& other) : vec_list() { *this = other; }
-                vec_list& operator=(const vec_list& other) {
+                vec_list(const vec_list& other) requires std::copy_constructible<T> : vec_list() { *this = other; }
+                vec_list& operator=(const vec_list& other) requires std::copy_constructible<T> {
                     this->clear();
                     this->insert(this->begin(), other.begin(), other.end());
                     return *this;
@@ -213,7 +213,7 @@ namespace palla {
                 friend bool operator==(const vec_list& a, const vec_list& b) {
                     if (a.size() != b.size())
                         return false;
-                    return a <=> b;
+                    return std::equal(a.begin(), a.end(), b.begin(), b.end());
                 }
 
                 friend auto operator<=>(const vec_list& a, const vec_list& b) {
