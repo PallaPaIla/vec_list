@@ -1,10 +1,10 @@
 
 #include <iostream>
-#include <numeric>
 #include <random>
 #include <chrono>
 #include <list>
 #include <iomanip>
+#include <array>
 
 #include "../header/vec_list.h"
 
@@ -67,6 +67,16 @@ void verify_vec_list_vs_std_list_stage_2(C&& compare_elements, F&& func) {
             make_test_fail("The elements are different.");
         ++std_it;
         ++vec_it;
+    }
+
+    auto std_rit = std_list.rbegin();
+    auto vec_rit = vec_list.rbegin();
+
+    for (size_t i = 0; i < std_list.size(); i++) {
+        if (!compare_elements(*std_rit, *vec_rit))
+            make_test_fail("The elements are different.");
+        ++std_rit;
+        ++vec_rit;
     }
 
     if(vec_it != vec_list.end())
@@ -264,6 +274,58 @@ void verify_vec_list_vs_std_list_stage_1(U&& compare_elements, V&& create_vector
         });
     }
 
+    // reverse()
+    verify_vec_list_vs_std_list_stage_2<T>(compare_elements, [&](auto& list) {
+        list = create_list(list);
+        list.reverse();
+    });
+
+    // Splice.
+
+    // splice(const_iterator pos, list other)
+    verify_vec_list_vs_std_list_stage_2<T>(compare_elements, [&](auto& list) {
+        auto other_list = create_list(list);
+        list = create_list(list);
+        list.splice(std::next(std::next(list.begin())), other_list);
+    });
+
+    // splice(const_iterator pos, list self)
+    verify_vec_list_vs_std_list_stage_2<T>(compare_elements, [&](auto& list) {
+        auto other_list = create_list(list);
+        list = create_list(list);
+        other_list.splice(std::next(std::next(other_list.begin())), list);
+    });
+
+    // splice(const_iterator pos, list other, const_iterator it)
+    verify_vec_list_vs_std_list_stage_2<T>(compare_elements, [&](auto& list) {
+        auto other_list = create_list(list);
+        list = create_list(list);
+        list.splice(std::next(std::next(list.begin())), other_list, std::prev(std::prev(std::prev(other_list.end()))));
+    });
+
+    // splice(const_iterator pos, list self, const_iterator it)
+    verify_vec_list_vs_std_list_stage_2<T>(compare_elements, [&](auto& list) {
+        auto other_list = create_list(list);
+        list = create_list(list);
+        other_list.splice(std::next(std::next(other_list.begin())), list, std::prev(std::prev(std::prev(list.end()))));
+    });
+
+    // splice(const_iterator pos, list other, const_iterator first, const_iterator last)
+    verify_vec_list_vs_std_list_stage_2<T>(compare_elements, [&](auto& list) {
+        auto other_list = create_list(list);
+        list = create_list(list);
+        list.splice(std::next(std::next(list.begin())), other_list, std::next(std::next(other_list.begin())), std::prev(std::prev(std::prev(other_list.end()))));
+    });
+
+    // splice(const_iterator pos, list self, const_iterator first, const_iterator last)
+    verify_vec_list_vs_std_list_stage_2<T>(compare_elements, [&](auto& list) {
+        auto other_list = create_list(list);
+        list = create_list(list);
+        other_list.splice(std::next(std::next(other_list.begin())), list, std::next(std::next(list.begin())), std::prev(std::prev(std::prev(list.end()))));
+    });
+
+
+
     // Insert and remove lots of random elements.
     verify_vec_list_vs_std_list_stage_2<T>(compare_elements, [&](auto& list) {
  
@@ -290,6 +352,10 @@ void verify_vec_list_vs_std_list_stage_1(U&& compare_elements, V&& create_vector
                 auto iterator = index == list.size() ? list.end() : iterators[index];
                 iterators.insert(iterators.begin() + index, list.insert(iterator, std::move(elem)));
             }
+
+            // Clear exactly once.
+            if (i == NB_STEPS / 2)
+                list.clear();
         }
     });
 }
@@ -298,19 +364,38 @@ void test_consistency_with_std_list() {
     std::cout << "\nTesting consistency with std::list.\n" << colors::yellow << "TESTING..." << colors::white << '\r';
 
     // Test a trivial type.
-    verify_vec_list_vs_std_list_stage_1([](int a, int b) { return a == b; }, []() {
-        std::vector<int> vec(10);
-        std::iota(vec.begin(), vec.end(), 0);
+    using small_trivial_t = size_t;
+    verify_vec_list_vs_std_list_stage_1([](small_trivial_t a, small_trivial_t b) { return a == b; }, []() {
+        std::vector<small_trivial_t> vec(10);
+        for (size_t i = 0; i < vec.size(); i++)
+            vec[i] = i;
+        return vec;
+    });
+
+    // Test a very large trivial type.
+    using large_trivial_t = std::array<size_t, 64>;
+    verify_vec_list_vs_std_list_stage_1([](const large_trivial_t& a, const large_trivial_t& b) { return a == b; }, []() {
+        std::vector<large_trivial_t> vec(10);
+        for (size_t i = 0; i < vec.size(); i++)
+            vec[i][i] = i;
+        return vec;
+    });
+
+    // Test a non-trivial type.
+    using non_trivial_t = std::vector<size_t>;
+    verify_vec_list_vs_std_list_stage_1([](const non_trivial_t& a, const non_trivial_t& b) { return a == b; }, []() {
+        std::vector<non_trivial_t> vec(10);
+        for (size_t i = 0; i < vec.size(); i++)
+            vec[i].resize(i);
         return vec;
     });
 
     // Test a move-only type.
-    verify_vec_list_vs_std_list_stage_1([](const std::unique_ptr<int>& a, const std::unique_ptr<int>& b) { return (a == nullptr && b == nullptr) || (*a == *b); }, []() {
-        std::vector<std::unique_ptr<int>> vec(10);
-        vec[0] = std::make_unique<int>(1);
-        vec[3] = std::make_unique<int>(42);
-        vec[5] = std::make_unique<int>(69);
-        vec[9] = std::make_unique<int>(1337);
+    verify_vec_list_vs_std_list_stage_1([](const std::unique_ptr<size_t>& a, const std::unique_ptr<size_t>& b) { return (a == nullptr && b == nullptr) || (*a == *b); }, []() {
+        std::vector<std::unique_ptr<size_t>> vec(10);
+        for (size_t i = 0; i < vec.size(); i++)
+            vec[i] = std::make_unique<size_t>(i);
+        vec[0] = nullptr;
         return vec;
     });
 
