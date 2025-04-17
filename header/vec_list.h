@@ -24,7 +24,7 @@ namespace palla {
                 struct node {
                     node* next = nullptr;
                     node* prev = nullptr;
-                    std::optional<T> elem;	// TODO optimize the optional by fudging the pointers in unused bits and directly storing a union of T and char.
+                    std::optional<T> elem;  // TODO optimize the optional by fudging the pointers in unused bits and directly storing a union of T and char.
                 };
 
                 // Iterators, templated for constness.
@@ -36,7 +36,7 @@ namespace palla {
                     explicit iterator_impl(node* node) : m_node(node) {}
 
                     // Private members.
-                    node* m_node = nullptr;	// The iterator is basically a wrapper around a node.
+                    node* m_node = nullptr; // The iterator is basically a wrapper around a node.
 
                 public:
                     // Types required to satisfy std::bidirectional_iterator.
@@ -68,10 +68,10 @@ namespace palla {
 
 
                 // Private members.
-                std::vector<std::vector<node>> m_buckets;	// List of buckets because they are never deleted. The first bucket is always 2 elements: begin and end.
-                node* m_first_hole = nullptr;				// First hole. Holes form a forward list embedded within this list. When an element is erased, it becomes the new first hole.
-                node* m_last_hole = nullptr;				// Last hole. Used for splicing lists together.
-                size_t m_size = 0;							// Number of elements (not holes).
+                std::vector<std::vector<node>> m_buckets;   // List of buckets because they are never deleted. The first bucket is always 2 elements: begin and end.
+                node* m_first_hole = nullptr;               // First hole. Holes form a forward list embedded within this list. When an element is erased, it becomes the new first hole.
+                node* m_last_hole = nullptr;                // Last hole. Used for splicing lists together.
+                size_t m_size = 0;                          // Number of elements (not holes).
                 size_t m_capacity = 0;                      // Number of elements and holes.
 
                 // Expansion constants.
@@ -147,7 +147,7 @@ namespace palla {
                 vec_list() { m_buckets.emplace_back(2); clear(); }
 
                 template<class it>
-                requires std::forward_iterator<it>
+                    requires std::forward_iterator<it>
                 vec_list(it first, it last) : vec_list() { insert(begin(), first, last); }
                 vec_list(std::initializer_list<T> list) : vec_list(list.begin(), list.end()) {}
 
@@ -178,7 +178,7 @@ namespace palla {
                 [[nodiscard]] size_type size() const { return m_size; }
                 [[nodiscard]] size_type max_size() const { return m_buckets[0].max_size(); }
                 [[nodiscard]] size_type capacity() const { return m_capacity; }
-                
+
                 // Iterators.
                 [[nodiscard]] iterator begin() { return iterator(m_buckets[0][1].next); }
                 [[nodiscard]] iterator end() { return iterator(&m_buckets[0][0]); }
@@ -212,16 +212,16 @@ namespace palla {
                 void insert(const_iterator pos, std::initializer_list<T> list) requires std::copyable<T> { insert(pos, list.begin(), list.end()); }
 
                 template<class it>
-                requires std::forward_iterator<it>
+                    requires std::forward_iterator<it>
                 void insert(const_iterator pos, it first, it last) {
                     resize_to_fit(std::distance(first, last));
-                    while (first != last) 
+                    while (first != last)
                         insert(pos, *(first++));
                 }
 
                 void insert(const_iterator pos, size_t count, const T& value) requires std::copyable<T> {
                     resize_to_fit(count);
-                    for (size_t i = 0; i < count; i++) 
+                    for (size_t i = 0; i < count; i++)
                         insert(pos, value);
                 }
 
@@ -302,7 +302,7 @@ namespace palla {
                         fill_bucket_with_holes(bucket_index, 0);
                     }
                     link_two_nodes(&m_buckets[0][1], &m_buckets[0][0]);
-                    if(m_buckets.size() > 1)
+                    if (m_buckets.size() > 1)
                         m_last_hole = &m_buckets.back().back();
                     m_size = 0;
                 }
