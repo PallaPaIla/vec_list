@@ -75,7 +75,7 @@ namespace palla {
                 size_t m_capacity = 0;                      // Number of elements and holes.
 
                 // Expansion constants.
-                static constexpr size_t MIN_BUCKET_SIZE = std::max<size_t>(16, 4096 / sizeof(node));    // Allocate at least 16 elements or an entire page like std::deque.
+                static constexpr size_t MIN_BUCKET_SIZE = 16;
                 static constexpr double GROWTH_FACTOR = 2;
 
                 // Private functions.
