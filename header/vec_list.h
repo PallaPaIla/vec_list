@@ -147,7 +147,7 @@ namespace palla {
                 vec_list() { m_buckets.emplace_back(2); clear(); }
 
                 template<class it>
-                requires(std::forward_iterator<it>)
+                requires std::forward_iterator<it>
                 vec_list(it first, it last) : vec_list() { insert(begin(), first, last); }
                 vec_list(std::initializer_list<T> list) : vec_list(list.begin(), list.end()) {}
 
