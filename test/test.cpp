@@ -22,6 +22,122 @@ void make_test_fail(const char* text) {
     std::exit(0);
 }
 
+void test_special_functions() {
+    std::cout << "\nTesting special functions.\n" << colors::yellow << "TESTING..." << colors::white << '\r';
+
+    palla::vec_list<int> list;
+
+    // Test reserve and capacity.
+    if(list.capacity() > 0)
+        make_test_fail("A newly constructed list should have capacity 0.");
+
+    list.push_back(0);
+    if (list.capacity() == 0)
+        make_test_fail("Adding an element should increase the capacity.");
+
+    list.reserve(10000);
+    if (list.capacity() == 10000)
+        make_test_fail("Reserve with a huge capacity should allocate exactly that capacity.");
+
+    list.resize(10000);
+    if (list.capacity() == 10000)
+        make_test_fail("Resize after reserve should not need to reallocate.");
+
+    // Test optimize.
+    list.erase(std::next(list.begin()), list.end());
+    list.optimize(true);
+    if (list.size() != 1 || list.capacity() == 0 || list.capacity() == 10000)
+        make_test_fail("Optimize with shrink_to_fit should free unused memory.");
+
+    list.clear();
+    list.optimize(true);
+    if (!list.empty() || list.capacity() != 0)
+        make_test_fail("Optimize with shrink_to_fit should free unused memory.");
+
+    auto create_sparse_list = []() {
+        // Create a sparse list by deleting 90% of it.
+        palla::vec_list<int> sparse_list;
+        for (int i = 0; i < 10000; i++) {
+            sparse_list.push_back(i);
+        }
+        for (auto it = sparse_list.begin(); it != sparse_list.end();) {
+            if (*it % 10 != 0)
+                it = sparse_list.erase(it);
+            else
+                ++it;
+        }
+        // Do it again.
+        for (int i = 0; i < 10000; i++) {
+            sparse_list.push_back(i + 10000);
+        }
+        for (auto it = sparse_list.begin(); it != sparse_list.end();) {
+            if (*it % 10 != 0)
+                it = sparse_list.erase(it);
+            else
+                ++it;
+        }
+        // The list should contain multiples of 10 from 0 to 20000.
+        if (sparse_list.size() != 2000)
+            make_test_fail("Incorrect test assumptions.");
+        return sparse_list;
+    };
+
+    auto test_optimize = [create_sparse_list](bool shrink_to_fit) {
+
+        auto ref_list = create_sparse_list();
+        auto list = create_sparse_list();
+        list.optimize(shrink_to_fit);
+        
+        // Test that the optimized list has the same elements in the same order as the sparse one and an ok capacity.
+        if ((list.capacity() == ref_list.capacity()) == shrink_to_fit)
+            make_test_fail(shrink_to_fit ?"Optimize with shrink_to_fit should free unused memory." : "Optimize without shrink_to_fit should not free any memory.");
+
+        if (shrink_to_fit && list.capacity() > 2 * list.size())
+            make_test_fail("Optimize with shrink_to_fit did not free enough memory.");
+
+        if (list != ref_list)
+            make_test_fail("Optimize should not change the contents of the list.");
+
+        // Test contiguousness. Add some more elements to check that they are also contiguous with the existing ones.
+        list.insert(list.end(), 10, 42);
+
+        auto current = list.begin();
+        while (true) {
+            auto next = std::next(current);
+            if (next == list.end())
+                break;
+            auto dist_bytes = (&*next - &*current) * sizeof(*current);
+            if(dist_bytes != 3 * 8)
+                make_test_fail("Optimize make the elements contiguous.");
+            current = next;
+        }
+
+    };
+
+    test_optimize(true);
+    test_optimize(false);
+
+    // Test that vec_list compiles with a non-movable type and that emplace() works.
+    struct non_movable {
+        int val = 0;
+        non_movable() = default;
+        non_movable(int val) : val(val) {}
+        non_movable(non_movable&&) = delete;
+        non_movable& operator=(non_movable&&) = delete;
+    };
+    palla::vec_list<non_movable> non_movable_list;
+    non_movable_list.emplace_front();
+    non_movable_list.emplace_back(2);
+    non_movable_list.emplace(std::next(non_movable_list.begin()), 1);
+    std::vector<int> copy;
+    for (const auto& elem : non_movable_list)
+        copy.push_back(elem.val);
+    if (copy != std::vector<int>{0, 1, 2})
+        make_test_fail("Non-movable types are not well handled.");
+
+    std::cout << colors::green << "PASS              " << colors::white;
+}
+
 void test_comparison() {
     std::cout << "\nTesting comparisons.\n" << colors::yellow << "TESTING..." << colors::white << '\r';
 
@@ -448,6 +564,7 @@ int main() {
 
     std::cout << colors::white;
 
+    test_special_functions();
     test_comparison();
     test_consistency_with_std_list();
 
