@@ -423,10 +423,12 @@ namespace palla {
                         }
                         // Swap it with the source node and update the pointers.
                         std::swap(*src_node, *dst_node);
-                        src_node->prev->next = src_node;
-                        src_node->next->prev = src_node;
                         dst_node->prev->next = dst_node;
                         dst_node->next->prev = dst_node;
+                        if (src_node->elem) { // We dont care about holes.
+                            src_node->prev->next = src_node;
+                            src_node->next->prev = src_node;
+                        }
                         src_node = dst_node->next;
                     }
 
