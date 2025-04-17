@@ -8,7 +8,7 @@ Copy `header/vec_list.h` and include it. Requires C++ 20.
 
 ## Description
 
-`vec_list` uses geometric allocation like `std::vector` and keeps a list of holes when elements are deleted. When it becomes full, it allocates another block and keeps the previous ones. This is required so iterators don't get invalidated.
+`vec_list` uses geometric allocation like `std::vector` and keeps a list of holes when elements are deleted. When it becomes full, it allocates another block and keeps the previous ones. This is required so iterators/references don't get invalidated.
 
 This improves over `std::list` which uses a `new`/`delete` on every insertion/erasure, while still keeping other traits like (amortized) constant time insertion and persistent iterators.
 
@@ -21,11 +21,11 @@ This improves over `std::list` which uses a `new`/`delete` on every insertion/er
 * `remove_if()`
 * `erase_if()`
 
-`splice()` is supported and optimized the same way as `std::list` for full lists, but not partial lists since this is not possible.
+`splice()` is supported and optimized the same way as `std::list` for full lists, but not partial lists since this is not possible without `std::move()`. This means the overloads for partial lists invalidate iterators/references.
 
 ### Extensions
 
 `vec_list` provides some additional functions over `std::list`:
 * `reserve(size_t n)` allocates at least enough memory to fit `n` elements before needing another allocation.
 * `capacity()` returns how many elements can fit in the list before needing another allocation.
-* `optimize(bool shrink_to_fit)` makes the elements as contiguous as possible. This is the only function which invalidates iterators. If `shrink_to_fit` is `true`, it will also free as much unused memory as possible.
+* `optimize(bool shrink_to_fit)` makes the elements as contiguous as possible. This is the only function which invalidates iterators/references. If `shrink_to_fit` is `true`, it will also free as much unused memory as possible.
