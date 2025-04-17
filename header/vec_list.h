@@ -97,20 +97,19 @@ namespace palla {
                     // Add the bucket.
                     m_capacity += bucket_size;
                     m_buckets.emplace_back(bucket_size);
-                    fill_bucket_with_holes(m_buckets.size() - 1);
-                    if (!m_last_hole)
-                        m_last_hole = &m_buckets.back().back();
+                    fill_bucket_with_holes(m_buckets.size() - 1, 0);
                     assert(m_first_hole);
                 }
 
                 // Fills a bucket with holes. Used to reset buckets.
-                void fill_bucket_with_holes(size_t bucket_index) {
-                    assert(bucket_index > 0 && bucket_index < m_buckets.size());        // Cannot fill bucket 0 because it contains begin and end.
+                void fill_bucket_with_holes(size_t bucket_index, size_t elem_index) {
+                    assert(bucket_index > 0 && bucket_index < m_buckets.size());                    // Cannot fill bucket 0 because it contains begin and end.
                     auto& bucket = m_buckets[bucket_index];
-                    assert(m_first_hole < &bucket[0] || m_first_hole > &bucket.back()); // The first hole should never be part of this bucket.
+                    assert(elem_index < bucket.size());
+                    assert(m_first_hole < &bucket[elem_index] || m_first_hole > &bucket.back());    // The first hole should never be part of this bucket.
 
                     // Clear the bucket.
-                    for (size_t i = 0; i < bucket.size(); i++) {
+                    for (size_t i = elem_index; i < bucket.size(); i++) {
                         bucket[i].next = &bucket[i] + 1;
                         bucket[i].prev = &bucket[i] - 1;
                         bucket[i].elem = std::nullopt;
@@ -118,8 +117,10 @@ namespace palla {
 
                     // Link to the first hole.
                     link_two_nodes(&bucket.back(), m_first_hole);
-                    bucket[0].prev = nullptr;
-                    m_first_hole = &bucket[0];
+                    bucket[elem_index].prev = nullptr;
+                    m_first_hole = &bucket[elem_index];
+                    if (m_last_hole == nullptr)
+                        m_last_hole = &m_buckets.back().back();
                 }
 
                 // Utility function which links prev and next.
@@ -153,7 +154,7 @@ namespace palla {
                 vec_list(size_t count, const T& value) : vec_list() { insert(begin(), count, value); }
                 vec_list(size_t count) : vec_list() { for (size_t i = 0; i < count; i++) insert(begin(), T{}); }
 
-                // vec_list is always movable.
+                // vec_list is always movable, even if T is not.
                 vec_list(vec_list&& other) : vec_list() { *this = std::move(other); }
                 vec_list& operator=(vec_list&& other) noexcept {
                     m_buckets = std::move(other.m_buckets); other.m_buckets.clear();
@@ -165,8 +166,8 @@ namespace palla {
                 }
 
                 // vec_list is copyable if T is.
-                vec_list(const vec_list& other) requires std::copy_constructible<T> : vec_list() { *this = other; }
-                vec_list& operator=(const vec_list& other) requires std::copy_constructible<T> {
+                vec_list(const vec_list& other) requires std::copyable<T> : vec_list() { *this = other; }
+                vec_list& operator=(const vec_list& other) requires std::copyable<T> {
                     this->clear();
                     this->insert(this->begin(), other.begin(), other.end());
                     return *this;
@@ -202,23 +203,23 @@ namespace palla {
                 // Assign.
                 template<class it>
                 void assign(it first, it last) { clear(); insert(first, last); }
-                void assign(size_t count, const T& value) { clear(); insert(end(), count, value); }
-                void assign(std::initializer_list<T> list) { assign(list.begin(), list.end()); }
+                void assign(size_t count, const T& value) requires std::copyable<T> { clear(); insert(end(), count, value); }
+                void assign(std::initializer_list<T> list) requires std::copyable<T> { assign(list.begin(), list.end()); }
 
                 // Insert.
-                iterator insert(const_iterator pos, T&& value) { return emplace(pos, std::move(value)); }
-                iterator insert(const_iterator pos, const T& value) { return emplace(pos, value); }
-                void insert(const_iterator pos, std::initializer_list<T> list) { insert(pos, list.begin(), list.end()); }
+                iterator insert(const_iterator pos, T&& value) requires std::movable<T> { return emplace(pos, std::move(value)); }
+                iterator insert(const_iterator pos, const T& value) requires std::copyable<T> { return emplace(pos, value); }
+                void insert(const_iterator pos, std::initializer_list<T> list) requires std::copyable<T> { insert(pos, list.begin(), list.end()); }
 
                 template<class it>
-                requires(std::forward_iterator<it>)
+                requires std::forward_iterator<it>
                 void insert(const_iterator pos, it first, it last) {
                     resize_to_fit(std::distance(first, last));
                     while (first != last) 
                         insert(pos, *(first++));
                 }
 
-                void insert(const_iterator pos, size_t count, const T& value) {
+                void insert(const_iterator pos, size_t count, const T& value) requires std::copyable<T> {
                     resize_to_fit(count);
                     for (size_t i = 0; i < count; i++) 
                         insert(pos, value);
@@ -227,14 +228,14 @@ namespace palla {
                 // Push and pop.
                 template<class... Ts>
                 reference emplace_back(Ts&&... args) { return *emplace(end(), std::forward<Ts>(args)...); }
-                reference push_back(T&& value) { return emplace_back(std::move(value)); }
-                reference push_back(const T& value) { return emplace_back(value); }
+                reference push_back(T&& value) requires std::movable<T> { return emplace_back(std::move(value)); }
+                reference push_back(const T& value) requires std::copyable<T> { return emplace_back(value); }
                 void pop_back() { erase(std::prev(end())); }
 
                 template<class... Ts>
                 reference emplace_front(Ts&&... args) { return *emplace(begin(), std::forward<Ts>(args)...); }
-                reference push_front(T&& value) { return emplace_front(std::move(value)); }
-                reference push_front(const T& value) { return emplace_front(value); }
+                reference push_front(T&& value) requires std::movable<T> { return emplace_front(std::move(value)); }
+                reference push_front(const T& value) requires std::copyable<T> { return emplace_front(value); }
                 void pop_front() { erase(begin()); }
 
                 // Comparisons.
@@ -288,7 +289,7 @@ namespace palla {
 
                     // Make the element the first hole.
                     m_first_hole = it.m_node;
-                    if (!m_last_hole)
+                    if (m_last_hole == nullptr)
                         m_last_hole = m_first_hole;
 
                     return iterator(next);
@@ -298,7 +299,7 @@ namespace palla {
                 void clear() {
                     m_first_hole = nullptr;
                     for (size_t bucket_index = 1; bucket_index < m_buckets.size(); bucket_index++) {
-                        fill_bucket_with_holes(bucket_index);
+                        fill_bucket_with_holes(bucket_index, 0);
                     }
                     link_two_nodes(&m_buckets[0][1], &m_buckets[0][0]);
                     if(m_buckets.size() > 1)
@@ -318,7 +319,7 @@ namespace palla {
                         emplace_back();
                 }
 
-                void resize(size_t new_size, const T& value) {
+                void resize(size_t new_size, const T& value) requires std::copyable<T> {
                     while (m_size > new_size)
                         pop_back();
                     insert(end(), new_size - m_size, value);
@@ -376,6 +377,80 @@ namespace palla {
                     other.erase(first, last);
                 }
                 void splice(const_iterator pos, vec_list&& other, const_iterator first, const_iterator last) { splice(pos, other, first, last); }
+
+                // Makes the list as contiguous as possible.
+                void optimize(bool shrink_to_fit) requires std::movable<T> {
+                    if (m_size == 0) {
+                        if (shrink_to_fit) {
+                            m_buckets.resize(1);
+                            m_capacity = 0;
+                        }
+                        clear();    // Clear organizes the holes.
+                        return;
+                    }
+
+                    // Sort the buckets in ascending order.
+                    std::sort(m_buckets.begin() + 1, m_buckets.end(), [](const std::vector<node>& a, const std::vector<node>& b) { return a.size() > b.size(); });
+
+                    // Find the destination buckets. Make them just large enough to contain all the points.
+                    size_t dst_capacity = 0;
+                    std::vector<std::vector<node>> dst_buckets;
+                    for (size_t i = 1; i < m_buckets.size() && dst_capacity < m_size; i++) {
+                        // Take the bucket if:
+                        // -it is below or at capacity.
+                        // -it is above capacity but the next bucket is below capacity/doesnt exist.
+                        size_t capacity_if_we_include_bucket = dst_capacity + m_buckets[i].size();
+                        bool take_bucket = (capacity_if_we_include_bucket <= m_size) || (i + 1 == m_buckets.size()) || (dst_capacity + m_buckets[i + 1].size() < m_size);
+                        if (take_bucket) {
+                            dst_capacity = capacity_if_we_include_bucket;
+                            dst_buckets.push_back(std::move(m_buckets[i]));
+                            m_buckets[i].clear(); // move is not garanteed to clear.
+                        }
+                    }
+                    assert(dst_capacity >= m_size);
+
+                    // Copy over the elements.
+                    auto src_node = begin().m_node;
+                    auto last = end().m_node;
+                    size_t dst_bucket_index = 0;
+                    size_t dst_elem_index = 0;
+                    while (src_node != last) {
+                        // Get the dst node.
+                        auto dst_node = &dst_buckets[dst_bucket_index][dst_elem_index++];
+                        if (dst_elem_index == dst_buckets[dst_bucket_index].size()) {
+                            dst_elem_index = 0;
+                            dst_bucket_index++;
+                        }
+                        // Swap it with the source node and update the pointers.
+                        std::swap(*src_node, *dst_node);
+                        src_node->prev->next = src_node;
+                        src_node->next->prev = src_node;
+                        dst_node->prev->next = dst_node;
+                        dst_node->next->prev = dst_node;
+                        src_node = dst_node->next;
+                    }
+
+                    // Deal with unused buckets.
+                    m_first_hole = nullptr;
+                    m_last_hole = nullptr;
+                    if (shrink_to_fit) {
+                        // Remove unused buckets.
+                        m_capacity = dst_capacity;
+                        m_buckets.resize(1);
+                    }
+                    else {
+                        // Fill unused buckets with holes in reverse order so that the larger ones are used first.
+                        m_buckets.erase(std::remove_if(m_buckets.begin() + 1, m_buckets.end(), [](const std::vector<node>& bucket) { return bucket.empty(); }), m_buckets.end());
+                        for (size_t i = m_buckets.size() - 1; i > 0; i--) {
+                            fill_bucket_with_holes(i, 0);
+                        }
+                    }
+
+                    // Append the dst buckets and fill the remaining portion of the last bucket with holes.
+                    m_buckets.insert(m_buckets.end(), std::make_move_iterator(dst_buckets.begin()), std::make_move_iterator(dst_buckets.end()));
+                    if (dst_elem_index > 0)
+                        fill_bucket_with_holes(m_buckets.size() - 1, dst_elem_index);
+                }
             };
 
 
