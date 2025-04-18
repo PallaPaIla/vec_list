@@ -458,8 +458,8 @@ void verify_vec_list_vs_std_list_stage_1(U&& compare_elements, V&& create_vector
             if (do_erase) {
                 size_t index = std::uniform_int_distribution<size_t>(0, list.size() - 1)(rand);
                 auto iterator = iterators[index];
-                iterators.erase(iterators.begin() + index);
                 list.erase(iterator);
+                iterators.erase(iterators.begin() + index);
             }
             else {
                 auto elems = create_vector();
@@ -469,8 +469,19 @@ void verify_vec_list_vs_std_list_stage_1(U&& compare_elements, V&& create_vector
                 iterators.insert(iterators.begin() + index, list.insert(iterator, std::move(elem)));
             }
 
+            // Optimize a few times.
+            bool random_bool = std::uniform_int_distribution<size_t>(0, 1)(rand); // Do this outside the if constexpr so that it doesnt affect the seed.
+            if constexpr (requires { list.optimize(true); }) {
+                if (i * 100 % NB_STEPS == 0) {
+                    list.optimize(random_bool);
+                    iterators.clear();
+                    for (auto it = list.begin(); it != list.end(); ++it)
+                        iterators.push_back(it);
+                }
+            }
+
             // Clear exactly once.
-            if (i == NB_STEPS / 2)
+            if (i * 2 % NB_STEPS == 0)
                 list.clear();
         }
     });
