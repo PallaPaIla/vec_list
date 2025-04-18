@@ -120,7 +120,7 @@ namespace palla {
                     bucket[elem_index].prev = nullptr;
                     m_first_hole = &bucket[elem_index];
                     if (m_last_hole == nullptr)
-                        m_last_hole = &m_buckets.back().back();
+                        m_last_hole = &m_buckets[bucket_index].back();
                 }
 
                 // Utility function which links prev and next.
@@ -414,23 +414,28 @@ namespace palla {
                     auto last = end().m_node;
                     size_t dst_bucket_index = 0;
                     size_t dst_elem_index = 0;
+                    auto prev = src_node->prev;
                     while (src_node != last) {
                         // Get the dst node.
+                        assert(src_node->elem);
                         auto dst_node = &dst_buckets[dst_bucket_index][dst_elem_index++];
                         if (dst_elem_index == dst_buckets[dst_bucket_index].size()) {
                             dst_elem_index = 0;
                             dst_bucket_index++;
                         }
-                        // Swap it with the source node and update the pointers.
-                        std::swap(*src_node, *dst_node);
-                        dst_node->prev->next = dst_node;
-                        dst_node->next->prev = dst_node;
-                        if (src_node->elem) { // We dont care about holes.
-                            src_node->prev->next = src_node;
-                            src_node->next->prev = src_node;
+                        if (src_node != dst_node) {
+                            // Swap it with the source node and update the pointers.
+                            if (dst_node->elem) {
+                                dst_node->prev->next = src_node;
+                                dst_node->next->prev = src_node;
+                            }
+                            std::swap(*src_node, *dst_node);
                         }
+                        link_two_nodes(prev, dst_node);
+                        prev = dst_node;
                         src_node = dst_node->next;
                     }
+                    link_two_nodes(prev, end().m_node);
 
                     // Deal with unused buckets.
                     m_first_hole = nullptr;
